@@ -1,15 +1,9 @@
 # Terraform GCP Organization
-- Create a new Google admin project
-- Create an admin service account
-    - Enable cloudresourcemanager.googleapis.com
-    - Grant `roles/resourcemanager.projectCreator` at the Organization level
-- Download service account JSON credentials and move to `terraform/admin.gcp.json`
 
-## Creating our root project
+## Creating the root project
 We'll start by automating the organizational layout, and bootstrapping the initial resources and the corresponding IAM roles, which will then be used to automate the actual infrastructure.
 
-We'll largely follow Google's [Cloud Foundation Project](https://github.com/
-terraform-google-modules/cloud-foundation-fabric/tree/master/organization-bootstrap) here.
+We'll largely follow Google's [Cloud Foundation Project](https://github.com/terraform-google-modules/cloud-foundation-fabric/tree/master/organization-bootstrap) here.
 
 ```sh
 gcloud init
@@ -17,21 +11,26 @@ gcloud auth login
 gcloud auth application-default login
 gcloud auth application-default print-access-token
 
-export GOOGLE_OAUTH_ACCESS_TOKEN=asdfasdf
+export GOOGLE_OAUTH_ACCESS_TOKEN=<output-from-above>
+
+cd /root
 terraform init
-terraform plan
+terraform apply
 ```
 
-## Terraform
+## Creating an environment
+Once our root project is created, we can use the service account we've created to scaffold a new environment to deploy our app. We'll first want to create a new Terraform workspace, which we'll help us to dynamically select our variables.
+
 ```
 terraform workspace new prod
 terraform workspace select prod
-terraform init --var-file= prod.tfvars
-terraform plan --var-file= prod.tfvars
-terraform apply --var-file= prod.tfvars
+
+terraform init
+terraform plan
+terraform apply
 ```
 
-## Deploy a sample app with Docker + Kubernetes
+## Deploying our app with Docker + Kubernetes
 Build Docker Image
 ```
 docker build -t gcr.io/<image-tag>/app:v1 .
