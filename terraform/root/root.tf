@@ -12,6 +12,18 @@ provider "google" {
   region = var.region
 }
 
+locals {
+  service_account_org_roles = [
+    "billing.admin",
+    "compute.networkAdmin",
+    "compute.xpnAdmin",
+    "container.hostServiceAgentUser",
+    "resourcemanager.organizationAdmin",
+    "resourcemanager.projectCreator",
+  ]
+}
+
+
 module "root_project" {
   source = "../modules/project"
 
@@ -40,20 +52,44 @@ module "service_account_tf" {
   ]
 }
 
-resource "google_organization_iam_member" "org_admin" {
+resource "google_organization_iam_member" "service_account_org_roles" {
+  for_each = toset(local.service_account_org_roles)
+
   org_id = var.org_id
-  role   = "roles/resourcemanager.organizationAdmin"
+  role   = "roles/${each.value}"
   member = "serviceAccount:${module.service_account_tf.email}"
 }
 
-resource "google_organization_iam_member" "project_creator" {
-  org_id = var.org_id
-  role   = "roles/resourcemanager.projectCreator"
-  member = "serviceAccount:${module.service_account_tf.email}"
+resource "google_compute_shared_vpc_host_project" "host_project" {
+  project = module.root_project.project_id
 }
 
-resource "google_billing_account_iam_member" "binding" {
-  billing_account_id = var.billing_id
-  role               = "roles/billing.admin"
-  member             = "serviceAccount:${module.service_account_tf.email}"
+resource "google_compute_network" "host_network" {
+  name                    = "example-vpc-host"
+  project                 = module.root_project.project_id
+  auto_create_subnetworks = false
+  routing_mode            = "GLOBAL"
+}
+
+resource "google_compute_firewall" "shared_network" {
+  name    = "allow-ssh-and-icmp"
+  project = module.root_project.project_id
+  network = google_compute_network.host_network.self_link
+
+  allow {
+    protocol = "icmp"
+  }
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "80", "443", "3306"]
+  }
+}
+
+output "host_project_id" {
+  value = module.root_project.project_id
+}
+
+output "host_vpc_id" {
+  value = google_compute_network.host_network.self_link
 }

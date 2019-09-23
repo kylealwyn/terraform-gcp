@@ -43,3 +43,7 @@ resource "google_project_service" "project_services" {
 output "project_id" {
   value = google_project.proj.project_id
 }
+
+output "project_number" {
+  value = google_project.proj.number
+}

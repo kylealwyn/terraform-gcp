@@ -29,24 +29,6 @@ resource "google_project_iam_member" "project" {
   member  = "serviceAccount:${google_service_account.sa.email}"
 }
 
-# resource "google_project_iam_binding" "project" {
-#   for_each = var.roles
-
-#   project = var.project_id
-#   role    = "roles/editor"
-
-#   members = [
-#     "serviceAccount:${google_service_account.sa.email}",
-#   ]
-# }
-
-# resource "google_service_account_iam_binding" "iam_binding" {
-
-
-#   service_account_id = ""
-#   role               = "roles/${each.value}"
-# }
-
 output "email" {
   value = google_service_account.sa.email
 }

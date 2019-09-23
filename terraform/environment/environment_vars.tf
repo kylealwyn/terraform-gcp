@@ -2,6 +2,14 @@ variable "project" {
   default = "api"
 }
 
+variable "host_project_id" {
+  default = "root-b50404e3"
+}
+
+variable "host_vpc_name" {
+  default = "example-vpc-host"
+}
+
 variable "vpc" {
   default = {
     public_subnet_cidr = {
@@ -41,7 +49,7 @@ variable "sql" {
 variable "k8s" {
   default = {
     machine_type = {
-      dev  = "f1-micro"
+      dev  = "g1-small"
       prod = "n1-standard-1"
     }
     preemptible = {

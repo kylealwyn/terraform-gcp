@@ -2,7 +2,16 @@ variable "name" {
   type = "string"
 }
 
+variable "host_project_id" {
+  type = "string"
+}
+
+
 variable "project_id" {
+  type = "string"
+}
+
+variable "project_number" {
   type = "string"
 }
 
@@ -34,6 +43,23 @@ variable "preemptible" {
   type = bool
 }
 
+resource "google_project_iam_member" "host_agent" {
+  project = var.host_project_id
+  role    = "roles/container.hostServiceAgentUser"
+  member  = "serviceAccount:service-${var.project_number}@container-engine-robot.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_binding" "compute_subnetworks" {
+  project = var.host_project_id
+  role    = "roles/compute.networkUser"
+
+  members  = [
+    "serviceAccount:service-${var.project_number}@container-engine-robot.iam.gserviceaccount.com",
+    "serviceAccount:${var.project_number}@cloudservices.gserviceaccount.com"
+  ]
+}
+
+
 resource "google_container_cluster" "primary" {
   name       = var.name
   project    = var.project_id
@@ -60,10 +86,10 @@ resource "google_container_cluster" "primary" {
     }
   }
 
-  # ip_allocation_policy {
-  #   cluster_secondary_range_name  = var.ip_range_pods
-  #   services_secondary_range_name = var.ip_range_services
-  # }
+  ip_allocation_policy {
+    cluster_secondary_range_name  = var.ip_range_pods
+    services_secondary_range_name = var.ip_range_services
+  }
 
   timeouts {
     create = "30m"
@@ -73,17 +99,19 @@ resource "google_container_cluster" "primary" {
 
   addons_config {
     http_load_balancing {
-      disabled = true
+      disabled = false
     }
 
     horizontal_pod_autoscaling {
-      disabled = true
+      disabled = false
     }
 
     kubernetes_dashboard {
-      disabled = true
+      disabled = false
     }
   }
+
+  depends_on = [google_project_iam_member.host_agent]
 }
 
 resource "google_container_node_pool" "primary_nodes" {
@@ -92,7 +120,7 @@ resource "google_container_node_pool" "primary_nodes" {
   location = var.region
   cluster  = google_container_cluster.primary.name
   # max_pods_per_node = 50
-  node_count = 1
+  node_count = 2
   node_config {
     preemptible  = var.preemptible
     machine_type = var.machine_type
@@ -108,6 +136,16 @@ resource "google_container_node_pool" "primary_nodes" {
     ]
   }
 
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 2
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+
   lifecycle {
     ignore_changes = [initial_node_count]
   }
@@ -116,44 +154,3 @@ resource "google_container_node_pool" "primary_nodes" {
 output "endpoint" {
   value = google_container_cluster.primary.endpoint
 }
-
-# module "gke" {
-#   source                     = "terraform-google-modules/kubernetes-engine/google"
-#   project_id                 = var.project_id
-#   name                       = var.name
-#   region                     = var.region
-#   network                    = var.network
-#   subnetwork                 = var.subnetwork
-#   ip_range_pods              = var.ip_range_pods
-#   ip_range_services          = var.ip_range_services
-
-#   http_load_balancing        = false
-#   horizontal_pod_autoscaling = true
-#   kubernetes_dashboard       = true
-#   network_policy             = true
-#   remove_default_node_pool   = true
-
-#   node_pools = [
-#     {
-#       name               = "default-node-pool"
-#       machine_type       = "n1-standard-2"
-#       min_count          = 1
-#       max_count          = 100
-#       disk_size_gb       = 100
-#       disk_type          = "pd-standard"
-#       image_type         = "COS"
-#       auto_repair        = true
-#       auto_upgrade       = true
-#       preemptible        = false
-#       initial_node_count = 2
-#     },
-#   ]
-
-#   node_pools_oauth_scopes = {
-#     all = [
-#       "https://www.googleapis.com/auth/devstorage.read_only",
-#       "https://www.googleapis.com/auth/logging.write",
-#       "https://www.googleapis.com/auth/monitoring",
-#     ]
-#   }
-# }
